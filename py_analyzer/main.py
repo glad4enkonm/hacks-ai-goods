@@ -5,14 +5,16 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from diskcache import Cache
 
-from sentence_transformer_t import Transformer
-from get_keywords import get_keywords
+from transformer import Transformer
+from morph_analyser import Analyser
 
 pd.set_option('display.max_columns', 25)
 pd.set_option('display.max_rows', 10000)
 pd.set_option('display.width', 1000)
 
 cached = Cache('temp')
+
+anlzr = Analyser()
 
 
 # cached.clear()
@@ -31,7 +33,7 @@ def load_standarts_list(cache=False):
     dd = defaultdict(list)
     for record in standarts_list.to_dict('records'):
         k, v = list(record.values())
-        k, v = get_keywords(k), get_keywords(v)
+        k, v = anlzr.to_keywords(k), anlzr.to_keywords(v)
         dd[v].append(k)
 
     if 'standarts_list' not in cached:
@@ -52,7 +54,7 @@ def load_standarts(cache=False):
 
     dd = defaultdict(list)
     for record in standarts.to_dict('records'):
-        k = get_keywords(record.pop('Группа продукции'))
+        k = anlzr.to_keywords(record.pop('Группа продукции'))
         dd[k].append(record)
 
     if 'standarts' not in cached:
@@ -92,8 +94,8 @@ def load_dataset():
     df.columns = ['id', 'group', 'name']
 
     if 'df' not in cached:
-        df['group'] = df['group'].apply(get_keywords)
-        df['name'] = df['name'].apply(get_keywords)
+        df['group'] = df['group'].apply(anlzr.to_keywords)
+        df['name'] = df['name'].apply(anlzr.to_keywords)
         cached['df'] = df
 
     df: pd.DataFrame = cached['df']
@@ -111,10 +113,8 @@ def calc_similarity_column(df, name, dataset_keys, dataset_embs, source_embs, so
             continue
         df.iloc[row - 1, df.columns.get_loc(name)] = ' '.join(data)
 
-def run():
-    # # TODO: Сосчитали под какие группы подходят какие стандарты
-    #
 
+def run():
     standarts_lst = load_standarts()
     standarts_lst_keys = list(standarts_lst.keys())
     standarts_lst_embs = t.calc_embeddings(tuple(standarts_lst_keys))
